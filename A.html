@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>Ultimate City Builder - Mayor's Edition</title>
+    <style>
+        :root {
+            --cell-size: 28px; 
+            --ui-bg: rgba(9, 14, 23, 0.9);
+            --ui-border: rgba(6, 182, 212, 0.5);
+            --ui-glow: rgba(6, 182, 212, 0.3);
+            --primary: #06b6d4; --active: #f59e0b;
+            --text-main: #f8fafc; --text-sub: #94a3b8;
+        }
+        
+        body { background: #020617; color: var(--text-main); font-family: 'Segoe UI', Tahoma, sans-serif; overflow: hidden; margin: 0; user-select: none; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.4); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 4px; }
+
+        /* หน้าจอเริ่มเกม */
+        #start-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at center, #0f172a 0%, #020617 100%); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 200; overflow-y: auto; padding: 20px; box-sizing: border-box; }
+        .game-title { font-size: 3.5rem; color: var(--primary); text-shadow: 0 0 20px var(--ui-glow); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 2px; }
+        
+        .name-input { background: rgba(0,0,0,0.5); border: 2px solid var(--primary); color: white; padding: 15px 20px; font-size: 1.2rem; border-radius: 8px; width: 300px; text-align: center; margin-bottom: 20px; outline: none; box-shadow: 0 0 15px var(--ui-glow); transition: 0.3s; }
+        .name-input:focus { background: rgba(6, 182, 212, 0.1); border-color: #fff; }
+
+        .section-title { color: #38bdf8; margin-top: 15px; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px; width: 100%; max-width: 600px; text-align: center; font-weight: normal; }
+        .card-container { display: flex; gap: 15px; margin-bottom: 10px; flex-wrap: wrap; justify-content: center; max-width: 800px; }
+        .card { background: rgba(15, 23, 42, 0.6); padding: 15px 20px; border-radius: 12px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); transition: 0.3s; width: 150px; text-align: center; backdrop-filter: blur(5px); }
+        .card:hover { transform: translateY(-5px); border-color: rgba(255,255,255,0.3); background: rgba(30, 41, 59, 0.8); }
+        .card.selected { border-color: var(--primary); background: rgba(6, 182, 212, 0.15); box-shadow: 0 0 15px var(--ui-glow); }
+        .card h3 { margin: 5px 0; font-size: 1.1rem; color: #fff; }
+        .card p { margin: 0; font-size: 0.8rem; color: var(--text-sub); }
+        
+        .start-btn { background: transparent; color: var(--primary); font-size: 1.2rem; font-weight: bold; padding: 15px 50px; border: 2px solid var(--primary); border-radius: 30px; cursor: pointer; transition: 0.3s; margin-top: 20px; text-transform: uppercase; letter-spacing: 2px; }
+        .start-btn:hover { background: var(--primary); color: #000; box-shadow: 0 0 25px var(--ui-glow); transform: scale(1.05); }
+
+        /* Top HUD */
+        #top-hud { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: var(--ui-bg); backdrop-filter: blur(12px); padding: 12px 40px; border-radius: 50px; z-index: 100; border: 1px solid var(--ui-border); box-shadow: 0 5px 20px rgba(0,0,0,0.5), 0 0 15px var(--ui-glow); display: none; gap: 30px; align-items: center; white-space: nowrap; pointer-events: auto; }
+        .hud-item { display: flex; align-items: center; gap: 10px; }
+        .hud-icon { font-size: 1.4rem; }
+        .hud-data { display: flex; flex-direction: column; }
+        .hud-label { font-size: 0.7rem; color: var(--text-sub); text-transform: uppercase; letter-spacing: 1px; }
+        .hud-value { font-size: 1.2rem; font-weight: bold; color: var(--text-main); }
+
+        /* ขยาย Bottom Dock ให้ใหญ่ขึ้น */
+        #bottom-dock { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); width: 95%; max-width: 1400px; background: var(--ui-bg); backdrop-filter: blur(12px); border-radius: 16px; z-index: 100; border: 1px solid var(--ui-border); box-shadow: 0 -5px 25px rgba(0,0,0,0.6); display: none; flex-direction: column; pointer-events: auto; overflow: hidden; }
+        .tabs { display: flex; overflow-x: auto; background: rgba(0,0,0,0.6); border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .tab-btn { background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-sub); padding: 15px 25px; cursor: pointer; font-size: 1rem; transition: 0.2s; white-space: nowrap; }
+        .tab-btn:hover { color: #fff; background: rgba(255,255,255,0.05); }
+        .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: bold; background: rgba(6, 182, 212, 0.05); }
+        
+        /* เพิ่มพื้นที่ให้เห็นของเยอะๆ */
+        #tools-container { padding: 20px; max-height: 35vh; overflow-y: auto; }
+        .tab-content { display: none; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+        .tab-content.active { display: grid; }
+
+        button.tool-btn { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); color: white; padding: 12px; border-radius: 8px; cursor: pointer; transition: 0.2s; text-align: left; display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden; }
+        button.tool-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); transform: translateY(-2px); }
+        button.tool-btn.active { background: rgba(245, 158, 11, 0.15); border-color: var(--active); box-shadow: 0 0 15px rgba(245, 158, 11, 0.3); }
+        .tool-name { font-weight: bold; font-size: 0.95rem; color: #fff; margin-bottom: 3px; }
+        .tool-desc { font-size: 0.75rem; color: var(--text-sub); }
+        
+        /* ป้ายชื่อนายกฯ */
+        .mayor-tag { position: absolute; top: -15px; left: 30px; background: var(--primary); color: #000; font-size: 0.85rem; font-weight: bold; padding: 4px 15px; border-radius: 12px; box-shadow: 0 0 10px var(--ui-glow); letter-spacing: 1px; border: 1px solid #fff; }
+
+        /* คำแนะนำกล้อง */
+        .controls-hint { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.7); padding: 12px 18px; border-radius: 8px; font-size: 0.85rem; color: var(--text-sub); z-index: 90; pointer-events: none; border: 1px solid var(--primary); box-shadow: 0 0 10px var(--ui-glow); line-height: 1.6; }
+
+        /* Isometric Grid */
+        #viewport { width: 100vw; height: 100vh; overflow: hidden; position: relative; cursor: grab; }
+        #viewport:active { cursor: grabbing; }
+        
+        #world-container { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.6); transform-origin: center; transition: transform 0.1s; perspective: 2500px; }
+        
+        /* Grid จะถูกหมุนผ่าน JS */
+        #grid { display: grid; grid-template-columns: repeat(40, var(--cell-size)); grid-template-rows: repeat(40, var(--cell-size)); transform-style: preserve-3d; box-shadow: 0 0 150px rgba(0,0,0,0.8); transition: transform 0.1s; }
+        
+        .cell { width: var(--cell-size); height: var(--cell-size); border: 0.5px solid rgba(255,255,255,0.03); position: relative; transition: 0.2s; }
+        .cell:hover::after { content: ''; position: absolute; top:0; left:0; right:0; bottom:0; background: rgba(255, 255, 255, 0.5); z-index: 100; pointer-events: none; }
+
+        /* ภูมิประเทศ */
+        .grass { background: #166534; }
+        .water-tile { background: #0284c7; box-shadow: inset 0 0 15px rgba(0,0,0,0.5); }
+        .sand { background: #d97706; }
+        .rock { background: #334155; }
+        
+        /* ฐานสิ่งก่อสร้าง */
+        .building { position: absolute; width: 100%; height: 100%; bottom: 0; box-shadow: 0 0 8px rgba(0,0,0,0.6); pointer-events: none; border: 1px solid rgba(255,255,255,0.2); }
+        .building.circle { border-radius: 50%; width: 80%; left: 10%; height: 80%; bottom: 10%; }
+        .building.dome { border-radius: 50% 50% 0 0; }
+        .building.clear { background: transparent !important; border: none !important; box-shadow: none !important; }
+
+        .disabled-bldg { opacity: 0.2; filter: grayscale(1) brightness(0.5); }
+        .warning { color: #ef4444 !important; font-weight: bold; text-shadow: 0 0 5px #ef4444; }
+        .positive { color: #10b981; }
+    </style>
+</head>
+<body>
+
+<div id="start-screen">
+    <h1 class="game-title">Project: Ultimate Mayor</h1>
+    <input type="text" id="mayor-name" class="name-input" placeholder="พิมพ์ชื่อนายกเทศมนตรีที่นี่..." autocomplete="off">
+
+    <h3 class="section-title">เลือกระดับความท้าทาย</h3>
+    <div class="card-container">
+        <div class="card diff-card selected" onclick="selectDiff('normal', this)"><h3>🟡 ปกติ</h3><p>งบ 10,000฿ สมดุลที่สุด</p></div>
+        <div class="card diff-card" onclick="selectDiff('hard', this)"><h3>🔴 ยาก</h3><p>งบ 3,000฿ ของแพง</p></div>
+        <div class="card diff-card" onclick="selectDiff('sandbox', this)"><h3>🟣 Sandbox</h3><p>เงิน ∞ สร้างฟรีทั้งหมด</p></div>
+    </div>
+
+    <h3 class="section-title">เลือกแผนที่เริ่มต้น</h3>
+    <div class="card-container">
+        <div class="card map-card selected" onclick="selectMap('random', this)"><h3>🎲 สุ่มอัลกอริทึม</h3><p>ภูมิประเทศแปลกใหม่</p></div>
+        <div class="card map-card" onclick="selectMap('plains', this)"><h3>🌱 ที่ราบกว้าง</h3><p>ไร้อุปสรรค พื้นที่ 100%</p></div>
+        <div class="card map-card" onclick="selectMap('islands', this)"><h3>🏝️ หมู่เกาะ</h3><p>ทะเลและหาดทราย</p></div>
+    </div>
+
+    <button class="start-btn" onclick="initGame()">เริ่มสร้างเมือง! 🚀</button>
+</div>
+
+<!-- Top HUD -->
+<div id="top-hud">
+    <div class="hud-item"><div class="hud-icon">💰</div><div class="hud-data"><span class="hud-label">งบประมาณ</span><span class="hud-value" id="money">0<span id="currency-sym">฿</span></span></div></div>
+    <div style="width: 1px; height: 25px; background: rgba(255,255,255,0.1);"></div>
+    <div class="hud-item"><div class="hud-icon">📈</div><div class="hud-data"><span class="hud-label">รายได้สุทธิ</span><span class="hud-value positive" id="income">+0</span></div></div>
+    <div style="width: 1px; height: 25px; background: rgba(255,255,255,0.1);"></div>
+    <div class="hud-item"><div class="hud-icon">👥</div><div class="hud-data"><span class="hud-label">ประชากร</span><span class="hud-value" id="pop">0</span></div></div>
+    <div style="width: 1px; height: 25px; background: rgba(255,255,255,0.1);"></div>
+    <div class="hud-item"><div class="hud-icon">⚡</div><div class="hud-data"><span class="hud-label">ไฟฟ้า (เมกะวัตต์)</span><span class="hud-value"><span id="power">0</span> / <span id="power-cap" style="color:#fbbf24;">0</span></span></div></div>
+    <div style="width: 1px; height: 25px; background: rgba(255,255,255,0.1);"></div>
+    <div class="hud-item"><div class="hud-icon">💧</div><div class="hud-data"><span class="hud-label">น้ำประปา (ลิตร)</span><span class="hud-value"><span id="water">0</span> / <span id="water-cap" style="color:#38bdf8;">0</span></span></div></div>
+</div>
+
+<!-- Bottom Dock -->
+<div id="bottom-dock">
+    <div class="mayor-tag">👤 MAYOR: <span id="display-mayor-name"></span> <span id="diff-badge" style="font-weight: normal; margin-left: 5px; color: #fff;">[NORMAL]</span></div>
+    <div class="tabs" id="category-tabs"></div>
+    <div id="tools-container"></div>
+</div>
+
+<div class="controls-hint">
+    <b>การควบคุมกล้อง:</b><br>
+    🖱️ <b>คลิกซ้ายค้าง:</b> ลากเพื่อเลื่อนแผนที่<br>
+    🖱️ <b>คลิกขวาค้าง:</b> หมุนมุมกล้อง 360°<br>
+    🖱️ <b>สกอร์ลเมาส์:</b> ซูมเข้า/ออก
+</div>
+
+<div id="viewport">
+    <div id="world-container"><div id="grid"></div></div>
+</div>
+
+<script>
+    const gridSize = 40; 
+    
+    const diffSettings = {
+        normal:  { startMoney: 10000, costMult: 1.0, taxMult: 1.0, name: 'NORMAL' },
+        hard:    { startMoney: 3000,  costMult: 1.5, taxMult: 0.6, name: 'HARD' },
+        sandbox: { startMoney: '∞',   costMult: 0,   taxMult: 0,   name: 'SANDBOX' }
+    };
+
+    let selectedDiff = 'normal';
+    let selectedMapType = 'random';
+
+    function selectDiff(diff, el) { selectedDiff = diff; document.querySelectorAll('.diff-card').forEach(c => c.classList.remove('selected')); el.classList.add('selected'); }
+    function selectMap(map, el) { selectedMapType = map; document.querySelectorAll('.map-card').forEach(c => c.classList.remove('selected')); el.classList.add('selected'); }
+
+    // หมวดหมู่ทั้ง 7 หมวด
+    const categories = {
+        infra: '🚧 พื้นฐาน', res: '🏠 ที่พักอาศัย', com: '🏢 ธุรกิจ/การค้า', 
+        ind: '🏭 อุตสาหกรรม', uti: '⚡ ทรัพยากร', civ: '🚓 บริการเมือง', spc: '👽 ลี้ลับ/ล้ำยุค'
+    };
+
+    // ฐานข้อมูลสิ่งปลูกสร้างแบบจัดเต็ม! (หมวดละ 10 อย่าง รวม 70 อย่าง)
+    // การเรนเดอร์ CSS จะใช้สี (col), รูปร่าง (shp), และความสูง (h) จาก JS แทนการเขียน Class 70 ตัวค่ะ
+    const bStats = {
+        // 1. โครงสร้างพื้นฐาน (Infra)
+        inf_road:    { c: 'infra', $: 10, p: 0, w: 0, t: -1, h: 1,  col: '#64748b', shp: 'box', n: 'ถนนยางมะตอย', d: 'ทางสัญจรพื้นฐาน' },
+        inf_dirt:    { c: 'infra', $: 5,  p: 0, w: 0, t: 0,  h: 1,  col: '#a16207', shp: 'box', n: 'ถนนดิน', d: 'ทางลูกรังราคาถูก' },
+        inf_high:    { c: 'infra', $: 30, p: 0, w: 0, t: -2, h: 5,  col: '#334155', shp: 'box', n: 'ทางด่วน', d: 'สะพานยกระดับ' },
+        inf_walk:    { c: 'infra', $: 15, p: 0, w: 0, t: -1, h: 1,  col: '#cbd5e1', shp: 'box', n: 'ทางเท้า/พลาซ่า', d: 'เพิ่มความสวยงาม' },
+        inf_bridge:  { c: 'infra', $: 50, p: 0, w: 0, t: -2, h: 8,  col: '#94a3b8', shp: 'box', n: 'สะพานข้ามน้ำ', d: 'เชื่อมเกาะ' },
+        inf_fence:   { c: 'infra', $: 8,  p: 0, w: 0, t: 0,  h: 10, col: '#475569', shp: 'box', n: 'รั้วเหล็ก', d: 'กั้นอาณาเขต' },
+        inf_wall:    { c: 'infra', $: 25, p: 0, w: 0, t: -1, h: 20, col: '#e2e8f0', shp: 'box', n: 'กำแพงเมือง', d: 'ป้องกันเมือง' },
+        inf_light:   { c: 'infra', $: 10, p: 1, w: 0, t: -1, h: 15, col: '#fef08a', shp: 'circle', n: 'เสาไฟถนน', d: 'ให้แสงสว่าง (กินไฟ 1)' },
+        inf_toll:    { c: 'infra', $: 100,p: 2, w: 0, t: 15, h: 10, col: '#3b82f6', shp: 'box', n: 'ด่านเก็บเงิน', d: 'เก็บค่าผ่านทาง 15฿' },
+        inf_bull:    { c: 'infra', $: 50, p: 0, w: 0, t: 0,  h: 0,  col: '',        shp: 'clear', n: 'รื้อถอน (Bulldozer)', d: 'ทุบตึกและถางป่า' },
+
+        // 2. ที่พักอาศัย (Res)
+        res_tent:    { c: 'res', $: 20,  p: 0, w: 0,  t: 2,  h: 10, col: '#84cc16', shp: 'dome', n: 'เต็นท์แคมป์', d: 'คน 2 | ภาษี 2฿' },
+        res_cabin:   { c: 'res', $: 80,  p: 1, w: 1,  t: 10, h: 15, col: '#b45309', shp: 'box', n: 'กระท่อมไม้', d: 'คน 8 | ภาษี 10฿' },
+        res_eco:     { c: 'res', $: 150, p: 1, w: 1,  t: 20, h: 20, col: '#a3e635', shp: 'box', n: 'บ้านประหยัดพลังงาน', d: 'คน 15 | ภาษี 20฿' },
+        res_suburb:  { c: 'res', $: 200, p: 3, w: 3,  t: 40, h: 25, col: '#fb923c', shp: 'box', n: 'บ้านจัดสรร', d: 'คน 25 | ภาษี 40฿' },
+        res_town:    { c: 'res', $: 350, p: 5, w: 4,  t: 70, h: 35, col: '#ea580c', shp: 'box', n: 'ทาวน์โฮม 3 ชั้น', d: 'คน 40 | ภาษี 70฿' },
+        res_apt:     { c: 'res', $: 600, p: 8, w: 8,  t: 120,h: 60, col: '#f87171', shp: 'box', n: 'อพาร์ตเมนต์', d: 'คน 80 | ภาษี 120฿' },
+        res_condo:   { c: 'res', $: 1200,p: 15,w: 12, t: 250,h: 90, col: '#9a3412', shp: 'box', n: 'คอนโดมิเนียม', d: 'คน 150 | ภาษี 250฿' },
+        res_man:     { c: 'res', $: 2000,p: 20,w: 15, t: 400,h: 40, col: '#fef08a', shp: 'box', n: 'คฤหาสน์หรู', d: 'คน 50 | ภาษี 400฿' },
+        res_slum:    { c: 'res', $: 100, p: 2, w: 1,  t: 5,  h: 15, col: '#57534e', shp: 'box', n: 'ชุมชนแออัด', d: 'คน 30 | ภาษี 5฿' },
+        res_mega:    { c: 'res', $: 4000,p: 40,w: 30, t: 800,h: 180,col: '#e2e8f0', shp: 'circle',n: 'เมกะทาวเวอร์', d: 'คน 500 | ภาษี 800฿' },
+
+        // 3. ธุรกิจ/การค้า (Com)
+        com_stall:   { c: 'com', $: 50,  p: 1, w: 1,  t: 15, h: 10, col: '#38bdf8', shp: 'box', n: 'แผงลอย/รถเข็น', d: 'รายได้ 15฿' },
+        com_cafe:    { c: 'com', $: 150, p: 3, w: 2,  t: 45, h: 15, col: '#0284c7', shp: 'box', n: 'ร้านกาแฟ', d: 'รายได้ 45฿' },
+        com_mini:    { c: 'com', $: 250, p: 5, w: 4,  t: 80, h: 25, col: '#bae6fd', shp: 'box', n: 'มินิมาร์ท 24 ชม.', d: 'รายได้ 80฿' },
+        com_super:   { c: 'com', $: 600, p: 10,w: 6,  t: 200,h: 30, col: '#0369a1', shp: 'box', n: 'ซุปเปอร์มาร์เก็ต', d: 'รายได้ 200฿' },
+        com_office:  { c: 'com', $: 1000,p: 15,w: 8,  t: 350,h: 70, col: '#7dd3fc', shp: 'box', n: 'อาคารสำนักงาน', d: 'รายได้ 350฿' },
+        com_mall:    { c: 'com', $: 2500,p: 30,w: 20, t: 800,h: 50, col: '#0284c7', shp: 'dome',n: 'ห้างสรรพสินค้า', d: 'รายได้ 800฿' },
+        com_cinema:  { c: 'com', $: 1500,p: 25,w: 10, t: 500,h: 40, col: '#818cf8', shp: 'box', n: 'โรงภาพยนตร์', d: 'รายได้ 500฿' },
+        com_bank:    { c: 'com', $: 1200,p: 12,w: 5,  t: 450,h: 60, col: '#f8fafc', shp: 'box', n: 'ธนาคารกลาง', d: 'รายได้ 450฿' },
+        com_hotel:   { c: 'com', $: 3000,p: 40,w: 50, t: 1000,h: 120,col: '#c084fc', shp: 'box', n: 'โรงแรม 5 ดาว', d: 'รายได้ 1,000฿ (กินน้ำจุ)' },
+        com_sky:     { c: 'com', $: 5000,p: 60,w: 40, t: 1800,h: 200,col: '#e0e7ff', shp: 'box', n: 'ตึกระฟ้า (Skyscraper)', d: 'รายได้ 1,800฿' },
+
+        // 4. อุตสาหกรรม (Ind)
+        ind_farm:    { c: 'ind', $: 200, p: 2, w: 20, t: 100,h: 2,  col: '#a3e635', shp: 'box', n: 'แปลงเกษตร', d: 'รายได้ 100฿ (ใช้น้ำเยอะ)' },
+        ind_green:   { c: 'ind', $: 400, p: 5, w: 10, t: 180,h: 15, col: '#d9f99d', shp: 'dome',n: 'เรือนกระจก', d: 'รายได้ 180฿' },
+        ind_ware:    { c: 'ind', $: 500, p: 6, w: 5,  t: 250,h: 25, col: '#fcd34d', shp: 'box', n: 'โกดังสินค้า', d: 'รายได้ 250฿' },
+        ind_light:   { c: 'ind', $: 1000,p: 15,w: 10, t: 500,h: 40, col: '#f59e0b', shp: 'box', n: 'โรงงานเบา', d: 'รายได้ 500฿' },
+        ind_heavy:   { c: 'ind', $: 2500,p: 40,w: 30, t: 1200,h: 60,col: '#b45309', shp: 'box', n: 'โรงงานอุตสาหกรรมหนัก', d: 'รายได้ 1,200฿' },
+        ind_oil:     { c: 'ind', $: 3500,p: 30,w: 0,  t: 1500,h: 80,col: '#1e293b', shp: 'box', n: 'แท่นขุดเจาะน้ำมัน', d: 'รายได้ 1,500฿' },
+        ind_mine:    { c: 'ind', $: 2000,p: 25,w: 15, t: 900,h: 10, col: '#475569', shp: 'box', n: 'เหมืองแร่', d: 'รายได้ 900฿' },
+        ind_tech:    { c: 'ind', $: 4000,p: 60,w: 20, t: 2000,h: 50,col: '#38bdf8', shp: 'box', n: 'โรงงานผลิตชิป', d: 'รายได้ 2,000฿ (กินไฟโหด)' },
+        ind_food:    { c: 'ind', $: 1500,p: 20,w: 40, t: 800,h: 35, col: '#fbbf24', shp: 'box', n: 'โรงงานอาหาร', d: 'รายได้ 800฿' },
+        ind_recyc:   { c: 'ind', $: 1200,p: 10,w: 5,  t: 600,h: 30, col: '#4ade80', shp: 'box', n: 'ศูนย์รีไซเคิล', d: 'รายได้ 600฿' },
+
+        // 5. ทรัพยากร (Uti) - ผลิตจะติดลบไฟ/น้ำในระบบคำนวณ ภาษีติดลบคือค่าบำรุง
+        uti_well:    { c: 'uti', $: 100, p: 0, w: -10,t: -2, h: 5,  col: '#bae6fd', shp: 'circle',n: 'บ่อน้ำบาดาล', d: 'ผลิตน้ำ 10' },
+        uti_pump:    { c: 'uti', $: 500, p: 10,w: -50,t: -15,h: 20, col: '#0284c7', shp: 'box', n: 'สถานีสูบน้ำ', d: 'ผลิตน้ำ 50' },
+        uti_tower:   { c: 'uti', $: 1200,p: 5, w: -150,t:-30,h: 80, col: '#38bdf8', shp: 'circle',n: 'แทงค์น้ำยักษ์', d: 'ผลิตน้ำ 150' },
+        uti_purify:  { c: 'uti', $: 2500,p: 30,w: -400,t:-80,h: 40, col: '#0ea5e9', shp: 'box', n: 'โรงกรองน้ำประปา', d: 'ผลิตน้ำ 400' },
+        uti_solar:   { c: 'uti', $: 200, p:-15,w: 0,  t: -5, h: 2,  col: '#1e293b', shp: 'box', n: 'แผงโซลาร์เซลล์', d: 'ผลิตไฟ 15' },
+        uti_wind:    { c: 'uti', $: 400, p:-35,w: 0,  t: -10,h: 50, col: '#f8fafc', shp: 'circle',n: 'กังหันลม', d: 'ผลิตไฟ 35' },
+        uti_coal:    { c: 'uti', $: 1200,p:-120,w: 15,t: -40,h: 60, col: '#3f3f46', shp: 'box', n: 'โรงไฟฟ้าถ่านหิน', d: 'ผลิตไฟ 120 (ใช้น้ำ)' },
+        uti_geo:     { c: 'uti', $: 3000,p:-250,w: 0, t: -80,h: 30, col: '#ef4444', shp: 'dome',n: 'โรงไฟฟ้าพลังความร้อนใต้พิภพ', d: 'ผลิตไฟ 250' },
+        uti_nuke:    { c: 'uti', $: 8000,p:-800,w: 100,t:-250,h: 70, col: '#10b981', shp: 'circle',n: 'โรงไฟฟ้านิวเคลียร์', d: 'ผลิตไฟ 800 (ใช้น้ำจุ)' },
+        uti_fusion:  { c: 'uti', $:15000,p:-2000,w:0, t:-500,h: 90, col: '#a855f7', shp: 'dome',n: 'เตาปฏิกรณ์ฟิวชั่น', d: 'ผลิตไฟ 2,000!' },
+
+        // 6. บริการเมือง (Civ)
+        civ_park:    { c: 'civ', $: 150, p: 1, w: 3,  t: -5, h: 2,  col: '#4ade80', shp: 'box', n: 'สวนสาธารณะเล็ก', d: 'ค่าบำรุง 5฿' },
+        civ_lpark:   { c: 'civ', $: 500, p: 3, w: 10, t: -15,h: 2,  col: '#22c55e', shp: 'box', n: 'สวนพฤกษศาสตร์', d: 'ค่าบำรุง 15฿' },
+        civ_clinic:  { c: 'civ', $: 600, p: 5, w: 5,  t: -20,h: 20, col: '#fca5a5', shp: 'box', n: 'คลินิกอนามัย', d: 'ค่าบำรุง 20฿' },
+        civ_hosp:    { c: 'civ', $: 2000,p: 25,w: 20, t: -80,h: 50, col: '#ef4444', shp: 'box', n: 'โรงพยาบาลศูนย์', d: 'ค่าบำรุง 80฿' },
+        civ_police:  { c: 'civ', $: 1200,p: 15,w: 8,  t: -50,h: 40, col: '#3b82f6', shp: 'box', n: 'สถานีตำรวจ', d: 'ค่าบำรุง 50฿' },
+        civ_fire:    { c: 'civ', $: 1200,p: 10,w: 30, t: -50,h: 35, col: '#dc2626', shp: 'box', n: 'สถานีดับเพลิง', d: 'ค่าบำรุง 50฿' },
+        civ_school:  { c: 'civ', $: 1000,p: 12,w: 10, t: -40,h: 30, col: '#facc15', shp: 'box', n: 'โรงเรียนประถม', d: 'ค่าบำรุง 40฿' },
+        civ_uni:     { c: 'civ', $: 3500,p: 40,w: 25, t: -150,h: 60,col: '#8b5cf6', shp: 'box', n: 'มหาวิทยาลัย', d: 'ค่าบำรุง 150฿' },
+        civ_stadium: { c: 'civ', $: 5000,p: 100,w: 50,t: 300,h: 45, col: '#ec4899', shp: 'circle',n: 'สนามกีฬาแห่งชาติ', d: 'กำไร 300฿ (แลนด์มาร์ค)' },
+        civ_statue:  { c: 'civ', $: 1500,p: 2, w: 0,  t: -10,h: 80, col: '#f8fafc', shp: 'box', n: 'อนุสาวรีย์นายกฯ', d: 'เชิดชูเกียรติ' },
+
+        // 7. ลี้ลับ/ไซไฟ (Spc)
+        spc_ufo:     { c: 'spc', $: 6000, p: 50, w: 0,  t: 1500,h: 15, col: '#8b5cf6', shp: 'circle',n: 'ลานจอด UFO', d: 'รายได้ 1,500฿' },
+        spc_magic:   { c: 'spc', $: 8000, p: 0,  w: 0,  t: 2000,h: 150,col: '#d946ef', shp: 'dome',n: 'หอคอยเวทมนตร์', d: 'ไม่ต้องใช้น้ำ/ไฟ' },
+        spc_portal:  { c: 'spc', $: 10000,p: 200,w: 0,  t: 4000,h: 100,col: '#06b6d4', shp: 'circle',n: 'ประตูข้ามมิติ', d: 'กำไรมหาศาล (ไฟ 200)' },
+        spc_dino:    { c: 'spc', $: 5000, p: 40, w: 100,t: 1200,h: 40, col: '#15803d', shp: 'box', n: 'สวนไดโนเสาร์', d: 'ดึงดูดคน' },
+        spc_mech:    { c: 'spc', $: 7500, p: 150,w: 20, t: -500,h: 120,col: '#334155', shp: 'box', n: 'โรงเก็บ Mecha', d: 'ศูนย์ป้องกันโลก' },
+        spc_clone:   { c: 'spc', $: 9000, p: 80, w: 60, t: 2500,h: 60, col: '#10b981', shp: 'box', n: 'ศูนย์โคลนนิ่งมนุษย์', d: 'ผลิตแรงงาน' },
+        spc_time:    { c: 'spc', $: 12000,p: 300,w: 0,  t: 5000,h: 80, col: '#f59e0b', shp: 'circle',n: 'ไทม์แมชชีน', d: 'ทำเงินจากอนาคต' },
+        spc_crystal: { c: 'spc', $: 4000, p:-100,w:-100,t: -100,h: 90, col: '#38bdf8', shp: 'box', n: 'คริสตัลลอยฟ้า', d: 'ผลิตน้ำ100 ไฟ100' },
+        spc_void:    { c: 'spc', $: 20000,p: 500,w: 200,t: 10000,h: 200,col: '#000000', shp: 'box', n: 'เครื่องกำเนิดหลุมดำ', d: 'รายได้ 10,000฿!' },
+        spc_nexus:   { c: 'spc', $: 15000,p: 400,w: 150,t: 8000,h: 250,col: '#0f766e', shp: 'dome',n: 'ไซเบอร์เน็กซัส', d: 'ศูนย์กลางจักรวาล' }
+    };
+
+    const state = { money: 0, mapData: [], powerSupply: 0, powerUsed: 0, waterSupply: 0, waterUsed: 0, tool: 'inf_road', currentTab: 'infra', gameInterval: null, diffSetting: null, playerName: 'เนียร์' };
+
+    // ควบคุมมุมกล้อง (เพิ่ม Rotate Z และ X)
+    let camPitch = 60, camYaw = 45;
+    let isDragging = false, isRotating = false;
+    let startX, startY, lastMouseX, lastMouseY;
+    let currentTransX = -50, currentTransY = -50, zoomLevel = 0.5;
+    
+    const viewport = document.getElementById('viewport');
+    const worldContainer = document.getElementById('world-container');
+    const grid = document.getElementById('grid');
+
+    function updateCamera() { 
+        worldContainer.style.transform = `translate(${currentTransX}%, ${currentTransY}%) scale(${zoomLevel})`; 
+        grid.style.transform = `rotateX(${camPitch}deg) rotateZ(${camYaw}deg)`;
+    }
+
+    // ป้องกันคลิกขวาเปิดเมนูเบราว์เซอร์
+    viewport.addEventListener('contextmenu', e => e.preventDefault());
+
+    viewport.addEventListener('mousedown', (e) => { 
+        if(e.target.closest('#top-hud') || e.target.closest('#bottom-dock')) return; 
+        if(e.button === 2) { isRotating = true; lastMouseX = e.clientX; lastMouseY = e.clientY; } // คลิกขวาหมุน
+        else if(e.button === 0) { isDragging = true; startX = e.clientX; startY = e.clientY; } // คลิกซ้ายเลื่อน
+    });
+    
+    window.addEventListener('mouseup', () => { isDragging = false; isRotating = false; });
+    
+    window.addEventListener('mousemove', (e) => {
+        if (isDragging) {
+            currentTransX += (e.clientX - startX) * 0.1 / zoomLevel;
+            currentTransY += (e.clientY - startY) * 0.1 / zoomLevel;
+            startX = e.clientX; startY = e.clientY; updateCamera();
+        }
+        if (isRotating) {
+            let dx = e.clientX - lastMouseX;
+            let dy = e.clientY - lastMouseY;
+            camYaw -= dx * 0.5;
+            camPitch -= dy * 0.5;
+            camPitch = Math.max(20, Math.min(80, camPitch)); // ล็อกมุมก้มเงยไม่ให้ตีลังกา
+            lastMouseX = e.clientX; lastMouseY = e.clientY; updateCamera();
+        }
+    });
+    
+    viewport.addEventListener('wheel', (e) => {
+        if(e.target.closest('#top-hud') || e.target.closest('#bottom-dock')) return; e.preventDefault();
+        zoomLevel = Math.min(Math.max(0.1, zoomLevel + (e.deltaY * -0.0005)), 3.0); updateCamera();
+    }, { passive: false });
+
+    // ฟังก์ชันสร้างแผนที่แบบสุ่ม
+    function generateRandomMap() {
+        let map = [];
+        for(let x=0; x<gridSize; x++) { map[x] = []; for(let y=0; y<gridSize; y++) map[x][y] = 'grass'; }
+        const terrains = ['water-tile', 'sand', 'rock'];
+        terrains.forEach(t => {
+            let seedCount = Math.floor(Math.random() * 6) + 4;
+            for(let i=0; i<seedCount; i++) { map[Math.floor(Math.random()*gridSize)][Math.floor(Math.random()*gridSize)] = t; }
+        });
+        for(let step=0; step<5; step++) {
+            let newMap = JSON.parse(JSON.stringify(map));
+            for(let x=0; x<gridSize; x++) {
+                for(let y=0; y<gridSize; y++) {
+                    if(map[x][y] === 'grass') {
+                        let neighbors = [];
+                        if(x>0) neighbors.push(map[x-1][y]); if(x<gridSize-1) neighbors.push(map[x+1][y]);
+                        if(y>0) neighbors.push(map[x][y-1]); if(y<gridSize-1) neighbors.push(map[x][y+1]);
+                        let nonGrass = neighbors.filter(n => n !== 'grass');
+                        if(nonGrass.length > 0 && Math.random() < 0.4) newMap[x][y] = nonGrass[Math.floor(Math.random()*nonGrass.length)];
+                    }
+                }
+            }
+            map = newMap;
+        }
+        let finalMap = [];
+        for(let x=0; x<gridSize; x++) {
+            finalMap[x] = [];
+            for(let y=0; y<gridSize; y++) {
+                let content = null;
+                if(map[x][y] === 'grass' && Math.random() < 0.15) content = { type: 'tree', el: null, isWorking: true };
+                if(map[x][y] === 'rock' && Math.random() < 0.4) content = { type: 'rock-obj', el: null, isWorking: true };
+                finalMap[x][y] = { terrain: map[x][y], content: content };
+            }
+        }
+        return finalMap;
+    }
+
+    function generatePresetMap(type) {
+        let map = [];
+        for (let x = 0; x < gridSize; x++) {
+            let row = [];
+            for (let y = 0; y < gridSize; y++) {
+                let terrain = 'grass';
+                if (type === 'islands') {
+                    if (x < 6 || x > 34 || y < 6 || y > 34 || (x>15 && x<25 && y>15 && y<25)) terrain = 'water-tile';
+                    else if (x < 8 || x > 32 || y < 8 || y > 32) terrain = 'sand';
+                }
+                let content = (terrain === 'grass' && Math.random() < 0.1) ? { type: 'tree', el: null, isWorking: true } : null;
+                row.push({ terrain: terrain, content: content });
+            }
+            map.push(row);
+        }
+        return map;
+    }
+
+    function initGame() {
+        // จัดการชื่อผู้เล่น
+        let nameInput = document.getElementById('mayor-name').value.trim();
+        state.playerName = nameInput !== "" ? nameInput : "เนียร์";
+        
+        state.diffSetting = diffSettings[selectedDiff];
+        state.money = state.diffSetting.startMoney;
+        
+        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('top-hud').style.display = 'flex';
+        document.getElementById('bottom-dock').style.display = 'flex';
+        
+        document.getElementById('display-mayor-name').innerText = state.playerName.toUpperCase();
+        document.getElementById('diff-badge').innerText = `[${state.diffSetting.name}]`;
+        if(selectedDiff === 'sandbox') document.getElementById('currency-sym').style.display = 'none';
+
+        buildUI();
+        state.mapData = (selectedMapType === 'random') ? generateRandomMap() : generatePresetMap(selectedMapType);
+        
+        renderGrid();
+        updateCamera();
+        
+        if(state.gameInterval) clearInterval(state.gameInterval);
+        state.gameInterval = setInterval(processTick, 3000);
+        updateUI();
+    }
+
+    // สร้าง UI ส่วน Bottom Dock 
+    function buildUI() {
+        const tabsContainer = document.getElementById('category-tabs');
+        const toolsContainer = document.getElementById('tools-container');
+        tabsContainer.innerHTML = ''; toolsContainer.innerHTML = '';
+        
+        for (const [catKey, catName] of Object.entries(categories)) {
+            const tab = document.createElement('button');
+            tab.className = `tab-btn ${catKey === state.currentTab ? 'active' : ''}`;
+            tab.innerText = catName;
+            tab.onclick = () => switchTab(catKey);
+            tabsContainer.appendChild(tab);
+
+            const content = document.createElement('div');
+            content.id = `tab-content-${catKey}`;
+            content.className = `tab-content ${catKey === state.currentTab ? 'active' : ''}`;
+            
+            for (const [key, stat] of Object.entries(bStats)) {
+                if (stat.c === catKey) {
+                    const btn = document.createElement('button');
+                    btn.id = `btn-${key}`;
+                    btn.className = `tool-btn ${key === state.tool ? 'active' : ''}`;
+                    btn.onclick = () => setTool(key);
+                    
+                    let displayCost = Math.floor(stat.$ * state.diffSetting.costMult);
+                    displayCost = (selectedDiff === 'sandbox') ? 'FREE' : displayCost + '฿';
+                    btn.innerHTML = `<span class="tool-name">${stat.n}</span><span class="tool-desc">${displayCost} | ${stat.d}</span>`;
+                    content.appendChild(btn);
+                }
+            }
+            toolsContainer.appendChild(content);
+        }
+    }
+
+    function switchTab(catKey) {
+        state.currentTab = catKey;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        event.target.classList.add('active');
+        document.getElementById(`tab-content-${catKey}`).classList.add('active');
+    }
+
+    function setTool(t) {
+        state.tool = t;
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('btn-' + t).classList.add('active');
+    }
+
+    function renderGrid() {
+        const grid = document.getElementById('grid');
+        grid.innerHTML = '';
+        for (let x = 0; x < gridSize; x++) {
+            for (let y = 0; y < gridSize; y++) {
+                const cellData = state.mapData[x][y];
+                const cell = document.createElement('div');
+                cell.className = `cell ${cellData.terrain}`;
+                
+                cell.onmousedown = (e) => {
+                    if(e.button !== 0) return;
+                    let moved = false; const onMove = () => moved = true;
+                    const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); if(!moved) handleCellBuild(x, y, cell); };
+                    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
+                };
+                
+                if (cellData.content) {
+                    const el = document.createElement('div');
+                    if(cellData.content.type === 'tree') el.className = 'building tree';
+                    else if(cellData.content.type === 'rock-obj') el.className = 'building rock-obj';
+                    else {
+                        const stat = bStats[cellData.content.type];
+                        el.className = `building ${stat.shp}`;
+                        el.style.backgroundColor = stat.col;
+                        el.style.transform = `translateZ(${stat.h}px)`;
+                        if (stat.col === '') el.className = 'building clear'; // สำหรับ bulldozer 
+                    }
+                    cell.appendChild(el);
+                    cellData.content.el = el;
+                }
+                grid.appendChild(cell);
+            }
+        }
+    }
+
+    function handleCellBuild(x, y, cellElement) {
+        const cellData = state.mapData[x][y];
+        const stat = bStats[state.tool];
+        const actualCost = Math.floor(stat.$ * state.diffSetting.costMult);
+
+        if (state.tool === 'inf_bull') {
+            if (!cellData.content) return;
+            if (selectedDiff !== 'sandbox' && state.money < actualCost) return alert("งบรื้อถอนไม่พอค่ะท่านนายกฯ!");
+            if (selectedDiff !== 'sandbox') state.money -= actualCost;
+            cellElement.innerHTML = ''; cellData.content = null;
+        } else {
+            if (cellData.terrain === 'water-tile' && stat.n !== 'สะพานข้ามน้ำ') return alert("สร้างบนน้ำไม่ได้ค่ะ ต้องเป็นสะพานเท่านั้น!"); 
+            if (cellData.terrain === 'rock') return alert("พื้นที่ภูเขาหิน ไม่สามารถสร้างได้ค่ะ"); 
+            if (cellData.content !== null) return;
+            if (selectedDiff !== 'sandbox' && state.money < actualCost) return alert("งบประมาณไม่เพียงพอค่ะ!");
+
+            if (selectedDiff !== 'sandbox') state.money -= actualCost;
+            
+            const el = document.createElement('div');
+            el.className = `building ${stat.shp}`;
+            el.style.backgroundColor = stat.col;
+            el.style.transform = `translateZ(${stat.h}px)`;
+            
+            cellElement.appendChild(el);
+            cellData.content = { type: state.tool, el: el, isWorking: false };
+        }
+        calculateSystems();
+        updateUI();
+    }
+
+    function calculateSystems() {
+        let allBuildings = [];
+        for (let x = 0; x < gridSize; x++) {
+            for (let y = 0; y < gridSize; y++) {
+                if (state.mapData[x][y].content && state.mapData[x][y].content.type !== 'tree' && state.mapData[x][y].content.type !== 'rock-obj') {
+                    allBuildings.push(state.mapData[x][y].content);
+                }
+            }
+        }
+
+        // ทรัพยากรที่ผลิตได้ จะมีค่า power/water ติดลบในระบบ ดังนั้นต้องดึงค่าที่ติดลบมาคิดเป็น Supply
+        state.powerSupply = allBuildings.reduce((sum, b) => { let p = bStats[b.type].p; return p < 0 ? sum + Math.abs(p) : sum; }, 0);
+        state.waterSupply = allBuildings.reduce((sum, b) => { let w = bStats[b.type].w; return w < 0 ? sum + Math.abs(w) : sum; }, 0);
+        
+        let currentPower = state.powerSupply; let currentWater = state.waterSupply;
+        state.powerUsed = 0; state.waterUsed = 0;
+
+        allBuildings.forEach(b => {
+            let p = bStats[b.type].p; let w = bStats[b.type].w;
+            let reqP = p > 0 ? p : 0; let reqW = w > 0 ? w : 0;
+            let hasP = true; let hasW = true;
+
+            if (selectedDiff === 'sandbox') {
+                state.powerUsed += reqP; state.waterUsed += reqW;
+            } else {
+                if (reqP > 0) { if (currentPower >= reqP) { currentPower -= reqP; state.powerUsed += reqP; } else hasP = false; }
+                if (reqW > 0) { if (currentWater >= reqW) { currentWater -= reqW; state.waterUsed += reqW; } else hasW = false; }
+            }
+
+            b.isWorking = (selectedDiff === 'sandbox') ? true : (hasP && hasW);
+            if(b.isWorking) b.el.classList.remove('disabled-bldg');
+            else b.el.classList.add('disabled-bldg');
+        });
+    }
+
+    function updateUI() {
+        document.getElementById('money').innerText = state.money;
+        const pwrEl = document.getElementById('power'); pwrEl.innerText = state.powerUsed;
+        document.getElementById('power-cap').innerText = selectedDiff === 'sandbox' ? '∞' : state.powerSupply;
+        pwrEl.className = (selectedDiff !== 'sandbox' && state.powerUsed >= state.powerSupply && state.powerUsed > 0) ? 'warning' : '';
+        
+        const wtrEl = document.getElementById('water'); wtrEl.innerText = state.waterUsed;
+        document.getElementById('water-cap').innerText = selectedDiff === 'sandbox' ? '∞' : state.waterSupply;
+        wtrEl.className = (selectedDiff !== 'sandbox' && state.waterUsed >= state.waterSupply && state.waterUsed > 0) ? 'warning' : '';
+
+        let totalPop = 0; let totalIncome = 0;
+        for (let x = 0; x < gridSize; x++) {
+            for (let y = 0; y < gridSize; y++) {
+                const b = state.mapData[x][y].content;
+                if (b && b.type !== 'tree' && b.type !== 'rock-obj' && b.isWorking) {
+                    let st = bStats[b.type];
+                    totalPop += st.p > 0 ? (st.c === 'res' ? st.t * 0.5 : 0) : 0; // ประมาณคนจากภาษีบ้าน
+                    if (st.n === 'เต็นท์แคมป์') totalPop += 2; if(st.n === 'กระท่อมไม้') totalPop += 8; // แก้ไขให้แม่นขึ้น
+                    if (st.c === 'res') totalPop += Math.floor(st.t); // เพิ่มประชากรตามภาษีที่พัก
+
+                    let actualTax = st.t;
+                    if(actualTax > 0) actualTax = Math.floor(actualTax * state.diffSetting.taxMult);
+                    totalIncome += actualTax;
+                }
+            }
+        }
+        document.getElementById('pop').innerText = totalPop;
+        const incomeEl = document.getElementById('income');
+        if (selectedDiff === 'sandbox') { incomeEl.innerText = 'ไม่จำกัด'; incomeEl.style.color = "var(--text-sub)"; }
+        else { 
+            incomeEl.innerText = (totalIncome >= 0 ? "+" : "") + totalIncome; 
+            incomeEl.className = totalIncome >= 0 ? "hud-value positive" : "hud-value warning"; 
+        }
+    }
+
+    function processTick() {
+        if (selectedDiff === 'sandbox') return;
+        let totalIncome = 0;
+        for (let x = 0; x < gridSize; x++) {
+            for (let y = 0; y < gridSize; y++) {
+                const b = state.mapData[x][y].content;
+                if (b && b.type !== 'tree' && b.type !== 'rock-obj' && b.isWorking) {
+                    let actualTax = bStats[b.type].t;
+                    if(actualTax > 0) actualTax = Math.floor(actualTax * state.diffSetting.taxMult);
+                    totalIncome += actualTax;
+                }
+            }
+        }
+        state.money += totalIncome;
+        if(state.money < 0) state.money = 0; 
+        updateUI();
+    }
+</script>
+
+</body>
+</html>
